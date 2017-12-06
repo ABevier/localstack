@@ -8,7 +8,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import cloud.localstack.docker.DockerExe;
-import cloud.localstack.docker.MatcherStream;
 import cloud.localstack.docker.PortMapping;
 
 public class PortCommand {
@@ -29,13 +28,10 @@ public class PortCommand {
 
     public List<PortMapping> execute() {
         String output = dockerExe.execute(Arrays.asList("port", containerId));
-        //LOG.fine("Port mappings = \n" + output);
 
-        List<PortMapping> result = new MatcherStream(PORT_MAPPING_PATTERN.matcher(output)).stream()
+        return new RegexStream(PORT_MAPPING_PATTERN.matcher(output)).stream()
                 .map(matchToPortMapping)
                 .collect(Collectors.toList());
-
-        return result;
     }
 
 

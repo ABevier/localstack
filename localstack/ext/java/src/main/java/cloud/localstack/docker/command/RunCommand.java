@@ -32,6 +32,7 @@ public class RunCommand {
         return containerId;
     }
 
+
     private void addPorts(List<String> args) {
         if(portsToExpose != null) {
             args.addAll(Arrays.asList("-p", ":" + portsToExpose));

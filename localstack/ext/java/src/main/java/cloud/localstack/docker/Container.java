@@ -6,8 +6,11 @@ import java.net.Socket;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
+import cloud.localstack.docker.command.LogCommand;
 import cloud.localstack.docker.command.PortCommand;
+import cloud.localstack.docker.command.PullCommand;
 import cloud.localstack.docker.command.RunCommand;
 import cloud.localstack.docker.command.StopCommand;
 
@@ -18,15 +21,27 @@ public class Container {
     private static final String LOCALSTACK_NAME = "localstack/localstack";
     private static final String LOCALSTACK_PORTS = "4567-4583";
 
+    private static final int MAX_PORT_CONNECTION_ATTEMPTS = 10;
+
+    private static final int MAX_LOG_COLLECTION_ATTEMPTS = 120;
+    private static final long POLL_INTERVAL = 1000;
+    private static final int NUM_LOG_LINES = 10;
+
+
     private final String containerId;
     private final List<PortMapping> ports;
+
 
     public static Container create() {
         DockerExe dockerExe = new DockerExe();
 
-        String containerId = new RunCommand(dockerExe, LOCALSTACK_NAME, LOCALSTACK_PORTS).execute();
-        List<PortMapping> portMappings = new PortCommand(dockerExe, containerId).execute();
+        LOG.info("Pulling latest image...");
+        new PullCommand(dockerExe, LOCALSTACK_NAME).execute();
 
+        String containerId = new RunCommand(dockerExe, LOCALSTACK_NAME, LOCALSTACK_PORTS).execute();
+        LOG.info("Started container: " + containerId);
+
+        List<PortMapping> portMappings = new PortCommand(dockerExe, containerId).execute();
         return new Container(containerId, portMappings);
     }
 
@@ -34,11 +49,6 @@ public class Container {
     private Container(String containerId, List<PortMapping> ports) {
         this.containerId = containerId;
         this.ports = Collections.unmodifiableList(ports);
-    }
-
-
-    public List<PortMapping> getPorts() {
-        return ports;
     }
 
 
@@ -58,7 +68,6 @@ public class Container {
 
     public void waitForAllPorts(String ip) {
         ports.forEach(port -> waitForPort(ip, port));
-        LOG.info("All ports successfully opened.");
     }
 
 
@@ -70,7 +79,7 @@ public class Container {
             }
             attempts++;
         }
-        while(attempts < 10);
+        while(attempts < MAX_PORT_CONNECTION_ATTEMPTS);
 
         throw new IllegalStateException("Could not open port:" + port.getExternalPort() + " on ip:" + port.getIp());
     }
@@ -78,9 +87,7 @@ public class Container {
 
     private boolean isPortOpen(String ip, PortMapping port) {
         try (Socket socket = new Socket()) {
-            LOG.info("##### Attempting to open connection to port: " + port.getExternalPort() + "on ip:" + ip);
-            socket.connect(new InetSocketAddress(ip, port.getExternalPort()), 500);
-            LOG.info("External Port '" + port.getExternalPort() + "' on ip '" + ip + "' was open");
+            socket.connect(new InetSocketAddress(ip, port.getExternalPort()), 1000);
             return true;
         } catch (IOException e) {
             return false;
@@ -88,8 +95,42 @@ public class Container {
     }
 
 
+    public void waitForLogToken(Pattern pattern) {
+        int attempts = 0;
+        do {
+            if(logContainsPattern(pattern)) {
+                return;
+            }
+            waitForLogs();
+            attempts++;
+        }
+        while(attempts < MAX_LOG_COLLECTION_ATTEMPTS);
+
+        throw new IllegalStateException("Could not find token: " + pattern.toString() + " in docker logs.");
+    }
+
+
+    private boolean logContainsPattern(Pattern pattern) {
+        DockerExe dockerExe = new DockerExe();
+        String logs = new LogCommand(dockerExe, containerId, NUM_LOG_LINES).execute();
+        return pattern.matcher(logs).find();
+    }
+
+
+    private void waitForLogs(){
+        try {
+            //TODO: better way to do this?
+            Thread.sleep(POLL_INTERVAL);
+        }
+        catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+
     public void stop(){
         DockerExe dockerExe = new DockerExe();
         new StopCommand(dockerExe, containerId).execute();
+        LOG.info("Stopped container: " + containerId);
     }
 }

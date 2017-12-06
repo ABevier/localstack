@@ -1,4 +1,4 @@
-package cloud.localstack.docker;
+package cloud.localstack.docker.command;
 
 import java.util.Spliterator;
 import java.util.function.Consumer;
@@ -6,11 +6,11 @@ import java.util.regex.Matcher;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public class MatcherStream {
+public class RegexStream {
 
     private final MatcherSpliterator matcherSpliterator;
 
-    public MatcherStream(Matcher matcher) {
+    public RegexStream(Matcher matcher) {
         this.matcherSpliterator = new MatcherSpliterator(matcher);
     }
 

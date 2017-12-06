@@ -1,6 +1,7 @@
 package cloud.localstack.docker;
 
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
@@ -9,6 +10,8 @@ import org.junit.runners.model.InitializationError;
 public class LocalstackDockerTestRunner extends BlockJUnit4ClassRunner {
 
     private static final Logger LOG = Logger.getLogger(LocalstackDockerTestRunner.class.getName());
+
+    private static final Pattern READY_TOKEN = Pattern.compile("Ready\\.");
 
     /**
      * Creates a BlockJUnit4ClassRunner to run {@code klass}
@@ -51,21 +54,16 @@ public class LocalstackDockerTestRunner extends BlockJUnit4ClassRunner {
 
     @Override
     public void run(RunNotifier notifier) {
-        LOG.info("BEFORE");
-
-//        String dockerExeLocation = getDockerExeLocation();
-//        LOG.info("EXE=" + dockerExeLocation);
-//        String containerId = startDocker(dockerExeLocation);
-//        List<PortMapping> mappings = getPortMappings(dockerExeLocation, containerId);
-//        LOG.info(Arrays.toString(mappings.toArray()));
-
-        //waitForAllPorts("127.0.0.1", mappings);
-
         localStackContainer = Container.create();
+        try {
 
-        super.run(notifier);
+            LOG.info("Waiting for localstack to be ready...");
+            localStackContainer.waitForLogToken(READY_TOKEN);
 
-        localStackContainer.stop();
-        LOG.info("AFTER");
+            super.run(notifier);
+        }
+        finally {
+            localStackContainer.stop();
+        }
     }
 }

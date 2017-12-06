@@ -55,14 +55,15 @@ public class DockerExe {
                     .start();
 
             ExecutorService exec = newSingleThreadExecutor();
-            Future<String> outputProcessing = exec.submit(() -> handleOutput(process));
+            Future<String> outputFuture = exec.submit(() -> handleOutput(process));
 
-            String output = waitForResult(outputProcessing);
+            String output = outputFuture.get(5, TimeUnit.MINUTES);
             process.waitFor(1, TimeUnit.MINUTES);
             exec.shutdown();
 
             return output;
         } catch (Exception ex) {
+            //TODO: maybe don't do this
             throw new RuntimeException(ex);
         }
     }
@@ -72,14 +73,4 @@ public class DockerExe {
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), UTF_8));
         return reader.lines().collect(joining(System.lineSeparator()));
     }
-
-
-    private String waitForResult(Future<String> outputProcessing) {
-        try {
-            return outputProcessing.get(5, TimeUnit.MINUTES);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
 }

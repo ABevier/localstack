@@ -1,18 +1,30 @@
 package cloud.localstack.docker;
 
-import static org.junit.Assert.assertEquals;
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
 
 import java.util.Arrays;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
+import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
+import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
+import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
+import com.amazonaws.services.dynamodbv2.model.KeyType;
 import com.amazonaws.services.dynamodbv2.model.ListTablesResult;
+import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
+import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import com.amazonaws.services.kinesis.AmazonKinesis;
+import com.amazonaws.services.kinesis.model.CreateStreamRequest;
+import com.amazonaws.services.kinesis.model.CreateStreamResult;
 import com.amazonaws.services.kinesis.model.ListStreamsResult;
 
 import cloud.localstack.DockerTestUtils;
@@ -25,15 +37,27 @@ public class BasicDockerFunctionalityTest {
         TestUtils.setEnv("AWS_CBOR_DISABLE", "1");
     }
 
-    @Before
-    public void setup() {
-        Container container = LocalstackDockerTestRunner.getLocalStackContainer();
-        container.waitForAllPorts();
+
+    @Test
+    public void testKinesis() throws Exception {
+        AmazonKinesis kinesis = DockerTestUtils.getClientKinesis();
+
+        ListStreamsResult streamsResult = kinesis.listStreams();
+        assertThat(streamsResult.getStreamNames().size(), is(0));
+
+        CreateStreamRequest createStreamRequest = new CreateStreamRequest()
+                .withStreamName("test-stream")
+                .withShardCount(2);
+
+        kinesis.createStream(createStreamRequest);
+
+        streamsResult = kinesis.listStreams();
+        assertThat(streamsResult.getStreamNames(), hasItem("test-stream"));
     }
 
 
     @Test
-    public void test1() {
+    public void testDynamo() throws Exception {
         String endpoint = LocalstackDockerTestRunner.getEndpointDynamo();
 
         AmazonDynamoDB dynamoDB = AmazonDynamoDBClientBuilder.standard()
@@ -41,27 +65,23 @@ public class BasicDockerFunctionalityTest {
                 .withCredentials(TestUtils.getCredentialsProvider())
                 .build();
 
-        System.out.println("Test 1 READY - endpoint = " + endpoint);
-
         ListTablesResult tablesResult = dynamoDB.listTables();
-        System.out.println("Dynamo -" + Arrays.toString(tablesResult.getTableNames().toArray()));
+        assertThat(tablesResult.getTableNames().size(), is(0));
 
-        AmazonKinesis kinesis = DockerTestUtils.getClientKinesis();
-        ListStreamsResult streams = kinesis.listStreams();
-        System.out.println("Kinesis -" + Arrays.toString(streams.getStreamNames().toArray()));
+        CreateTableRequest createTableRequest = new CreateTableRequest()
+                .withTableName("test.table")
+                .withKeySchema(new KeySchemaElement("identifier", KeyType.HASH))
+                .withAttributeDefinitions(new AttributeDefinition("identifier", ScalarAttributeType.S))
+                .withProvisionedThroughput(new ProvisionedThroughput(10L, 10L));
+        dynamoDB.createTable(createTableRequest);
+
+        tablesResult = dynamoDB.listTables();
+        assertThat(tablesResult.getTableNames(), hasItem("test.table"));
     }
 
-    @Test
-    public void test2() {
-        System.out.println("2");
-        int result = 3 + 3;
-        assertEquals(6, result);
-    }
 
     @Test
-    public void test3() {
-        System.out.println("3");
-        int result = 4 + 4;
-        assertEquals(8, result);
+    public void testS3() throws Exception {
+        throw new Exception("not implemented yet");
     }
 }

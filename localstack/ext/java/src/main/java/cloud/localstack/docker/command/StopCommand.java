@@ -14,6 +14,7 @@ public class StopCommand {
         this.containerId = containerId;
     }
 
+
     public void execute() {
         dockerExe.execute(Arrays.asList("stop", containerId));
     }
