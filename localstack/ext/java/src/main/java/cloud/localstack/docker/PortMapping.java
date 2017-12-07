@@ -1,5 +1,8 @@
 package cloud.localstack.docker;
 
+/**
+ * Keeps track of the external to internal port mapping for a container
+ */
 public class PortMapping {
     private final String ip;
     private final int externalPort;

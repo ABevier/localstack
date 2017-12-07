@@ -14,6 +14,10 @@ import cloud.localstack.docker.command.PullCommand;
 import cloud.localstack.docker.command.RunCommand;
 import cloud.localstack.docker.command.StopCommand;
 
+/**
+ * An abstraction of the localstack docker container.  Provides port mappings,
+ * a way to poll the logs until a specified token appears, and the ability to stop the container
+ */
 public class Container {
 
     private static final Logger LOG = Logger.getLogger(Container.class.getName());
@@ -54,6 +58,9 @@ public class Container {
     }
 
 
+    /**
+     * Given an internal port, retrieve the publicly addressable port that maps to it
+     */
     public int getExternalPortFor(int internalPort) {
         return ports.stream()
                 .filter(port -> port.getInternalPort() == internalPort)
@@ -92,6 +99,10 @@ public class Container {
     }
 
 
+    /**
+     * Poll the docker logs until a specific token appears, then return.  Primarily used to look
+     * for the "Ready." token in the localstack logs.
+     */
     public void waitForLogToken(Pattern pattern) {
         int attempts = 0;
         do {
@@ -115,7 +126,6 @@ public class Container {
 
     private void waitForLogs(){
         try {
-            //TODO: better way to do this?
             Thread.sleep(POLL_INTERVAL);
         }
         catch (InterruptedException ex) {
@@ -124,6 +134,9 @@ public class Container {
     }
 
 
+    /**
+     * Stop the container
+     */
     public void stop(){
         new StopCommand(containerId).execute();
         LOG.info("Stopped container: " + containerId);

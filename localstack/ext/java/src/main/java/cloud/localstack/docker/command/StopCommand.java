@@ -10,7 +10,6 @@ public class StopCommand extends Command {
         this.containerId = containerId;
     }
 
-
     public void execute() {
         dockerExe.execute(Arrays.asList("stop", containerId));
     }

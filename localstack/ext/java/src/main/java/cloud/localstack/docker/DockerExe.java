@@ -6,6 +6,7 @@ import static java.util.stream.Collectors.joining;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -15,6 +16,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * A wrapper around the docker executable process. The DOCKER_LOCATION environment variable
+ * can be used if docker is not installed in a default location.
+ */
 public class DockerExe {
 
     private static final List<String> POSSIBLE_EXE_LOCATIONS = Arrays.asList(
@@ -61,8 +66,7 @@ public class DockerExe {
 
             return output;
         } catch (Exception ex) {
-            //TODO: maybe don't do this
-            throw new RuntimeException(ex);
+            throw new RuntimeException("Failed to execute command", ex);
         }
     }
 

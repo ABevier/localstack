@@ -12,6 +12,21 @@ import org.junit.runners.model.InitializationError;
 import cloud.localstack.docker.annotation.IHostNameResolver;
 import cloud.localstack.docker.annotation.LocalstackDockerProperties;
 
+/**
+ * JUnit test runner that automatically pulls and runs the latest localstack docker image
+ * and then terminates when tests are complete.
+ *
+ * Having docker installed is a prerequisite for this test runner to execute.  If docker
+ * is not installed in one of the default locations (C:\program files\docker\docker\resources\bin\, usr/local/bin or usr/bin)
+ * then use the DOCKER_LOCATION environment variable to specify the location.
+ *
+ * Since ports are dynamically allocated, the external port needs to be resolved based on the default localstack port.
+ *
+ * The hostname defaults to localhost, but in some environments that is not sufficient, so the HostName can be specified
+ * by using the LocalstackDockerProperties annotation with an IHostNameResolver.
+ *
+ * @author Alan Bevier
+ */
 public class LocalstackDockerTestRunner extends BlockJUnit4ClassRunner {
 
     private static final Logger LOG = Logger.getLogger(LocalstackDockerTestRunner.class.getName());

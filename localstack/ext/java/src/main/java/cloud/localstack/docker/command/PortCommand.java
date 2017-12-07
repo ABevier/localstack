@@ -18,7 +18,7 @@ public class PortCommand extends Command {
 
     private final String containerId;
 
-    public PortCommand( String containerId) {
+    public PortCommand(String containerId) {
         this.containerId = containerId;
     }
 
