@@ -11,11 +11,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 public class DockerExe {
 
@@ -39,7 +37,7 @@ public class DockerExe {
                 .filter(Objects::nonNull)
                 .filter(name -> new File(name).exists())
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Cannot find docker executable"));
+                .orElseThrow(() -> new IllegalStateException("Cannot find docker executable."));
     }
 
 
@@ -57,7 +55,7 @@ public class DockerExe {
             ExecutorService exec = newSingleThreadExecutor();
             Future<String> outputFuture = exec.submit(() -> handleOutput(process));
 
-            String output = outputFuture.get(5, TimeUnit.MINUTES);
+            String output = outputFuture.get(1, TimeUnit.MINUTES);
             process.waitFor(1, TimeUnit.MINUTES);
             exec.shutdown();
 

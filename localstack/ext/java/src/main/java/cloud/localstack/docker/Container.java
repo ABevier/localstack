@@ -33,15 +33,13 @@ public class Container {
 
 
     public static Container create() {
-        DockerExe dockerExe = new DockerExe();
-
         LOG.info("Pulling latest image...");
-        new PullCommand(dockerExe, LOCALSTACK_NAME).execute();
+        new PullCommand(LOCALSTACK_NAME).execute();
 
-        String containerId = new RunCommand(dockerExe, LOCALSTACK_NAME, LOCALSTACK_PORTS).execute();
+        String containerId = new RunCommand(LOCALSTACK_NAME).withExposedPorts(LOCALSTACK_PORTS).execute();
         LOG.info("Started container: " + containerId);
 
-        List<PortMapping> portMappings = new PortCommand(dockerExe, containerId).execute();
+        List<PortMapping> portMappings = new PortCommand(containerId).execute();
         return new Container(containerId, portMappings);
     }
 
@@ -111,8 +109,7 @@ public class Container {
 
 
     private boolean logContainsPattern(Pattern pattern) {
-        DockerExe dockerExe = new DockerExe();
-        String logs = new LogCommand(dockerExe, containerId, NUM_LOG_LINES).execute();
+        String logs = new LogCommand(containerId).withNumberOfLines(NUM_LOG_LINES).execute();
         return pattern.matcher(logs).find();
     }
 
@@ -129,8 +126,7 @@ public class Container {
 
 
     public void stop(){
-        DockerExe dockerExe = new DockerExe();
-        new StopCommand(dockerExe, containerId).execute();
+        new StopCommand(containerId).execute();
         LOG.info("Stopped container: " + containerId);
     }
 }

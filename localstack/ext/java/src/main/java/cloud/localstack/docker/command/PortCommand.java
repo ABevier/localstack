@@ -7,21 +7,18 @@ import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import cloud.localstack.docker.DockerExe;
 import cloud.localstack.docker.PortMapping;
 
-public class PortCommand {
+public class PortCommand extends Command {
 
     private static final Pattern PORT_MAPPING_PATTERN = Pattern.compile("(\\d+)/tcp -> ((\\d)(\\.(\\d)){3}):(\\d+)");
     private static final int INTERNAL_PORT_GROUP = 1;
     private static final int EXTERNAL_PORT_GROUP = 6;
     private static final int IP_GROUP = 2;
 
-    private final DockerExe dockerExe;
     private final String containerId;
 
-    public PortCommand(DockerExe dockerExe, String containerId) {
-        this.dockerExe = dockerExe;
+    public PortCommand( String containerId) {
         this.containerId = containerId;
     }
 

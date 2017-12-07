@@ -2,17 +2,13 @@ package cloud.localstack.docker.command;
 
 import java.util.Arrays;
 
-import cloud.localstack.docker.DockerExe;
-
-public class PullCommand {
+public class PullCommand extends Command {
 
     private static final String LATEST_TAG = "latest";
 
-    private final DockerExe dockerExe;
     private final String imageName;
 
-    public PullCommand(DockerExe dockerExe, String imageName) {
-        this.dockerExe = dockerExe;
+    public PullCommand(String imageName) {
         this.imageName = imageName;
     }
 
