@@ -20,6 +20,7 @@ public class Container {
 
     private static final String LOCALSTACK_NAME = "localstack/localstack";
     private static final String LOCALSTACK_PORTS = "4567-4583";
+    private static final String LOCALSTACK_EXTERNAL_HOSTNAME = "HOSTNAME_EXTERNAL";
 
     private static final int MAX_PORT_CONNECTION_ATTEMPTS = 10;
 
@@ -32,11 +33,14 @@ public class Container {
     private final List<PortMapping> ports;
 
 
-    public static Container create() {
+    public static Container createLocalstackContainer(String externalHostName) {
         LOG.info("Pulling latest image...");
         new PullCommand(LOCALSTACK_NAME).execute();
 
-        String containerId = new RunCommand(LOCALSTACK_NAME).withExposedPorts(LOCALSTACK_PORTS).execute();
+        String containerId = new RunCommand(LOCALSTACK_NAME)
+                .withExposedPorts(LOCALSTACK_PORTS)
+                .withEnvironmentVariable(LOCALSTACK_EXTERNAL_HOSTNAME, externalHostName)
+                .execute();
         LOG.info("Started container: " + containerId);
 
         List<PortMapping> portMappings = new PortCommand(containerId).execute();

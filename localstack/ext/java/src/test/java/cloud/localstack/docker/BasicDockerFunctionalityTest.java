@@ -4,11 +4,8 @@ import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertThat;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,18 +16,13 @@ import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.amazon.sqs.javamessaging.SQSConnection;
 import com.amazon.sqs.javamessaging.SQSConnectionFactory;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.model.AttributeDefinition;
 import com.amazonaws.services.dynamodbv2.model.CreateTableRequest;
 import com.amazonaws.services.dynamodbv2.model.KeySchemaElement;
@@ -40,7 +32,6 @@ import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 import com.amazonaws.services.kinesis.AmazonKinesis;
 import com.amazonaws.services.kinesis.model.CreateStreamRequest;
-import com.amazonaws.services.kinesis.model.CreateStreamResult;
 import com.amazonaws.services.kinesis.model.ListStreamsResult;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.Bucket;
@@ -49,14 +40,16 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.model.CreateQueueRequest;
-import com.amazonaws.services.sqs.model.CreateQueueResult;
 import com.amazonaws.services.sqs.model.ListQueuesResult;
 import com.amazonaws.util.IOUtils;
 
 import cloud.localstack.DockerTestUtils;
 import cloud.localstack.TestUtils;
+import cloud.localstack.docker.annotation.EC2HostNameResolver;
+import cloud.localstack.docker.annotation.LocalstackDockerProperties;
 
 @RunWith(LocalstackDockerTestRunner.class)
+@LocalstackDockerProperties(hostNameResolver = EC2HostNameResolver.class)
 public class BasicDockerFunctionalityTest {
 
     static {
@@ -147,9 +140,6 @@ public class BasicDockerFunctionalityTest {
 
         ListQueuesResult listQueuesResult = client.listQueues();
         assertThat(listQueuesResult.getQueueUrls().size(), is(1));
-
-        //TODO: REMOVE THIS - AFTER I"M SURE EXTERNAL HOST PROPERTY IS RESPECTED
-        System.out.println(listQueuesResult.getQueueUrls().get(0));
 
         SQSConnection connection = createSQSConnection();
         connection.start();

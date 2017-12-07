@@ -10,9 +10,9 @@ public abstract class Command {
 
     protected final DockerExe dockerExe = new DockerExe();
 
-    protected List<String> flags = new ArrayList<>();
+    protected List<String> options = new ArrayList<>();
 
-    protected void addFlags(String ...items) {
-        flags.addAll(Arrays.asList(items));
+    protected void addOptions(String ...items) {
+        options.addAll(Arrays.asList(items));
     }
 }

@@ -15,7 +15,7 @@ public class LogCommand extends Command {
     public String execute() {
         List<String> args = new ArrayList<>();
         args.add("logs");
-        args.addAll(flags);
+        args.addAll(options);
         args.add(containerId);
 
         return dockerExe.execute(args);
@@ -23,7 +23,7 @@ public class LogCommand extends Command {
 
 
     public LogCommand withNumberOfLines(Integer numberOfLines){
-        this.addFlags("--tail", numberOfLines.toString());
+        this.addOptions("--tail", numberOfLines.toString());
         return this;
     }
 }

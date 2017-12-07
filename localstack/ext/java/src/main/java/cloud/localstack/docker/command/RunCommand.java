@@ -16,7 +16,7 @@ public class RunCommand extends Command {
         List<String> args = new ArrayList<>();
         args.add("run");
         args.add("-d");
-        args.addAll(flags);
+        args.addAll(options);
         args.add(imageName);
 
         return dockerExe.execute(args);
@@ -24,7 +24,13 @@ public class RunCommand extends Command {
 
 
     public RunCommand withExposedPorts(String portsToExpose) {
-        addFlags("-p", ":" + portsToExpose);
+        addOptions("-p", ":" + portsToExpose);
+        return this;
+    }
+
+
+    public RunCommand withEnvironmentVariable(String name, String value) {
+        addOptions("-e", String.format("\"%s=%s\"", name, value));
         return this;
     }
 }
