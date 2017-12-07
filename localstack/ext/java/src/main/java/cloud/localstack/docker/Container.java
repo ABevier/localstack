@@ -59,11 +59,6 @@ public class Container {
     }
 
 
-    public void waitForAllPorts() {
-        waitForAllPorts("127.0.0.1");
-    }
-
-
     public void waitForAllPorts(String ip) {
         ports.forEach(port -> waitForPort(ip, port));
     }
