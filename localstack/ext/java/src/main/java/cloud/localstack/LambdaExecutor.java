@@ -1,17 +1,27 @@
 package cloud.localstack;
 
+import cloud.localstack.lambda.DDBEventParser;
+import com.amazonaws.services.dynamodbv2.document.internal.InternalUtils;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.services.dynamodbv2.model.Identity;
+import com.amazonaws.services.dynamodbv2.model.OperationType;
+import com.amazonaws.services.dynamodbv2.model.StreamRecord;
 import com.amazonaws.services.lambda.runtime.RequestStreamHandler;
+import com.amazonaws.services.lambda.runtime.events.DynamodbEvent;
 import com.amazonaws.services.lambda.runtime.events.SNSEvent;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
@@ -19,11 +29,13 @@ import com.amazonaws.services.lambda.runtime.events.KinesisEvent;
 import com.amazonaws.services.lambda.runtime.events.KinesisEvent.KinesisEventRecord;
 import com.amazonaws.services.lambda.runtime.events.KinesisEvent.Record;
 import com.amazonaws.util.StringInputStream;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.codec.Charsets;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.DateTime;
+import sun.reflect.generics.reflectiveObjects.ParameterizedTypeImpl;
 
 /**
  * Simple implementation of a Java Lambda function executor.
@@ -42,14 +54,18 @@ public class LambdaExecutor {
 
 		String fileContent = readFile(args[1]);
 		ObjectMapper reader = new ObjectMapper();
-		@SuppressWarnings("deprecation")
-		Map<String,Object> map = reader.reader(Map.class).readValue(fileContent);
+		Map<String,Object> map = reader.readerFor(Map.class).readValue(fileContent);
 
 		List<Map<String,Object>> records = (List<Map<String, Object>>) get(map, "Records");
-		@SuppressWarnings("rawtypes")
 		Object inputObject = map;
 
-		if (records != null) {
+		Object handler = getHandler(args[0]);
+		if (records == null) {
+			Optional<Object> deserialisedInput = getInputObject(reader, fileContent, handler);
+			if (deserialisedInput.isPresent()) {
+				inputObject = deserialisedInput.get();
+			}
+		} else {
 			if (records.stream().filter(record -> record.containsKey("Kinesis")).count() > 0) {
 				KinesisEvent kinesisEvent = new KinesisEvent();
 				inputObject = kinesisEvent;
@@ -81,14 +97,23 @@ public class LambdaExecutor {
 					snsRecord.setTimestamp(new DateTime());
 					r.setSns(snsRecord);
 				}
+			} else if (records.stream().filter(record -> record.containsKey("dynamodb")).count() > 0) {
+
+				inputObject = DDBEventParser.parse(records);
+
 			}
 			//TODO: Support other events (S3, SQS...)
 		}
 
-		Object handler = getHandler(args[0]);
 		Context ctx = new LambdaContext();
 		if (handler instanceof RequestHandler) {
 			Object result = ((RequestHandler) handler).handleRequest(inputObject, ctx);
+			// try turning the output into json
+			try {
+				result = new ObjectMapper().writeValueAsString(result);
+			} catch (JsonProcessingException jsonException) {
+				// continue with results as it is
+			}
 			// The contract with lambci is to print the result to stdout, whereas logs go to stderr
 			System.out.println(result);
 		} else if (handler instanceof RequestStreamHandler) {
@@ -99,13 +124,31 @@ public class LambdaExecutor {
 		}
 	}
 
+	private static Optional<Object> getInputObject(ObjectMapper mapper, String objectString, Object handler) {
+		Optional<Object> inputObject = Optional.empty();
+		try {
+			Optional<Type> handlerInterface = Arrays.stream(handler.getClass().getGenericInterfaces())
+					.filter(genericInterface ->
+						((ParameterizedTypeImpl) genericInterface).getRawType().equals(RequestHandler.class))
+					.findFirst();
+			if (handlerInterface.isPresent()) {
+				Class handlerInputType = Class.forName(((ParameterizedTypeImpl) handlerInterface.get())
+						.getActualTypeArguments()[0].getTypeName());
+				inputObject = Optional.of(mapper.readerFor(handlerInputType).readValue(objectString));
+			}
+		} catch (Exception genericException) {
+			// do nothing
+		}
+		return inputObject;
+	}
+
 	private static Object getHandler(String handlerName) throws NoSuchMethodException, IllegalAccessException,
 		InvocationTargetException, InstantiationException, ClassNotFoundException {
 		Class<?> clazz = Class.forName(handlerName);
 		return clazz.getConstructor().newInstance();
 	}
 
-	private static <T> T get(Map<String,T> map, String key) {
+	public static <T> T get(Map<String,T> map, String key) {
 		T result = map.get(key);
 		if(result != null) {
 			return result;
@@ -118,7 +161,7 @@ public class LambdaExecutor {
 		return map.get(key.toLowerCase());
 	}
 
-	private static String readFile(String file) throws Exception {
+	public static String readFile(String file) throws Exception {
 		if(!file.startsWith("/")) {
 			file = System.getProperty("user.dir") + "/" + file;
 		}

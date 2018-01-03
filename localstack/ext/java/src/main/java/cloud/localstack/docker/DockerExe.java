@@ -11,13 +11,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
+/**
+ * A wrapper around the docker executable process. The DOCKER_LOCATION environment variable
+ * can be used if docker is not installed in a default location.
+ */
 public class DockerExe {
+
+    private static final int WAIT_TIMEOUT_MINUTES = 3;
 
     private static final List<String> POSSIBLE_EXE_LOCATIONS = Arrays.asList(
             System.getenv("DOCKER_LOCATION"),
@@ -39,7 +43,7 @@ public class DockerExe {
                 .filter(Objects::nonNull)
                 .filter(name -> new File(name).exists())
                 .findFirst()
-                .orElseThrow(() -> new IllegalStateException("Cannot find docker executable"));
+                .orElseThrow(() -> new IllegalStateException("Cannot find docker executable."));
     }
 
 
@@ -55,15 +59,15 @@ public class DockerExe {
                     .start();
 
             ExecutorService exec = newSingleThreadExecutor();
-            Future<String> outputProcessing = exec.submit(() -> handleOutput(process));
+            Future<String> outputFuture = exec.submit(() -> handleOutput(process));
 
-            String output = waitForResult(outputProcessing);
-            process.waitFor(1, TimeUnit.MINUTES);
+            String output = outputFuture.get(WAIT_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+            process.waitFor(WAIT_TIMEOUT_MINUTES, TimeUnit.MINUTES);
             exec.shutdown();
 
             return output;
         } catch (Exception ex) {
-            throw new RuntimeException(ex);
+            throw new RuntimeException("Failed to execute command", ex);
         }
     }
 
@@ -72,14 +76,4 @@ public class DockerExe {
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), UTF_8));
         return reader.lines().collect(joining(System.lineSeparator()));
     }
-
-
-    private String waitForResult(Future<String> outputProcessing) {
-        try {
-            return outputProcessing.get(5, TimeUnit.MINUTES);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
 }

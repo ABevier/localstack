@@ -1,6 +1,7 @@
 import json
 import logging
 import requests
+import uuid
 import xmltodict
 from requests.models import Response
 from six.moves.urllib import parse as urlparse
@@ -56,13 +57,16 @@ class ProxyListenerSNS(ProxyListener):
 
             elif req_action == 'Publish':
                 message = req_data['Message'][0]
-                subject = (req_data.get('Subject', ['']))[0]
                 sqs_client = aws_stack.connect_to_service('sqs')
                 for subscriber in SNS_SUBSCRIPTIONS[topic_arn]:
                     if subscriber['Protocol'] == 'sqs':
-                        queue_name = subscriber['Endpoint'].split(':')[5]
-                        queue_url = subscriber.get('sqs_queue_url')
-                        if not queue_url:
+                        endpoint = subscriber['Endpoint']
+                        if 'sqs_queue_url' in subscriber:
+                            queue_url = subscriber.get('sqs_queue_url')
+                        elif '://' in endpoint:
+                            queue_url = endpoint
+                        else:
+                            queue_name = endpoint.split(':')[5]
                             queue_url = aws_stack.get_sqs_queue_url(queue_name)
                             subscriber['sqs_queue_url'] = queue_url
                         sqs_client.send_message(QueueUrl=queue_url,
@@ -79,12 +83,7 @@ class ProxyListenerSNS(ProxyListener):
                                 'Content-Type': 'text/plain',
                                 'x-amz-sns-message-type': 'Notification'
                             },
-                            data=json.dumps({
-                                'Type': 'Notification',
-                                'Subject': subject,
-                                'Message': message,
-                            })
-                        )
+                            data=create_sns_message_body(subscriber, req_data))
                     else:
                         LOGGER.warning('Unexpected protocol "%s" for SNS subscription' % subscriber['Protocol'])
                 # return response here because we do not want the request to be forwarded to SNS
@@ -94,7 +93,7 @@ class ProxyListenerSNS(ProxyListener):
 
     def return_response(self, method, path, data, headers, response):
         # This method is executed by the proxy after we've already received a
-        # response from the backend, hence we can utilize the "reponse" variable here
+        # response from the backend, hence we can utilize the "response" variable here
         if method == 'POST' and path == '/':
             req_data = urlparse.parse_qs(to_str(data))
             req_action = req_data['Action'][0]
@@ -187,6 +186,7 @@ def create_sns_message_body(subscriber, req_data):
         return message
 
     data = {}
+    data['MessageId'] = str(uuid.uuid4())
     data['Type'] = 'Notification'
     data['Message'] = message
     data['TopicArn'] = subscriber['TopicArn']

@@ -2,13 +2,14 @@ import re
 import logging
 import json
 import requests
+import dateutil.parser
 from requests.models import Response
 from flask import Response as FlaskResponse
 from localstack.constants import APPLICATION_JSON, PATH_USER_REQUEST
 from localstack.config import TEST_KINESIS_URL
 from localstack.utils import common
 from localstack.utils.aws import aws_stack
-from localstack.utils.common import to_str
+from localstack.utils.common import to_str, to_bytes
 from localstack.services.awslambda import lambda_api
 from localstack.services.kinesis import kinesis_listener
 from localstack.services.generic_proxy import ProxyListener
@@ -112,7 +113,10 @@ def extract_path_params(path, extracted_path):
     for param in path_params_list:
         path_param_name = param[1][1:-1].encode('utf-8')
         path_param_position = param[0]
-        path_params[path_param_name] = tokenized_path[path_param_position]
+        if path_param_name.endswith(b'+'):
+            path_params[path_param_name] = '/'.join(tokenized_path[path_param_position:])
+        else:
+            path_params[path_param_name] = tokenized_path[path_param_position]
     path_params = common.json_safe(path_params)
     return path_params
 
@@ -120,7 +124,8 @@ def extract_path_params(path, extracted_path):
 def get_resource_for_path(path, path_map):
     matches = []
     for api_path, details in path_map.items():
-        api_path_regex = re.sub(r'\{[^\}]+\}', '[^/]+', api_path)
+        api_path_regex = re.sub(r'\{[^\+]+\+\}', '[^\?#]+', api_path)
+        api_path_regex = re.sub(r'\{[^\}]+\}', '[^/]+', api_path_regex)
         if re.match(r'^%s$' % api_path_regex, path):
             matches.append((api_path, details))
     if not matches:
@@ -165,7 +170,11 @@ class ProxyListenerApiGateway(ProxyListener):
             except Exception:
                 # if we have no exact match, try to find an API resource that contains path parameters
                 path_map = get_rest_api_paths(rest_api_id=api_id)
-                extracted_path, resource = get_resource_for_path(path=relative_path, path_map=path_map) or {}
+                try:
+                    extracted_path, resource = get_resource_for_path(path=relative_path, path_map=path_map)
+                except Exception:
+                    return make_error('Unable to find path %s' % path, 404)
+
                 integrations = resource.get('resourceMethods', {})
                 integration = integrations.get(method, {})
                 integration = integration.get('methodIntegration')
@@ -215,8 +224,10 @@ class ProxyListenerApiGateway(ProxyListener):
                     response.status_code = int(parsed_result.get('statusCode', 200))
                     response.headers.update(parsed_result.get('headers', {}))
                     try:
-                        response_body = parsed_result['body']
-                        response._content = json.dumps(response_body)
+                        if isinstance(parsed_result['body'], dict):
+                            response._content = json.dumps(parsed_result['body'])
+                        else:
+                            response._content = parsed_result['body']
                     except Exception:
                         response._content = '{}'
                     return response
@@ -244,6 +255,19 @@ class ProxyListenerApiGateway(ProxyListener):
             return handle_authorizers(method, path, data, headers)
 
         return True
+
+    def return_response(self, method, path, data, headers, response):
+        try:
+            response_data = json.loads(response.content)
+            # Fix an upstream issue in Moto API Gateway, where it returns `createdDate` as a string
+            # instead of as an integer timestamp:
+            # see https://github.com/localstack/localstack/issues/511
+            if 'createdDate' in response_data and not isinstance(response_data['createdDate'], int):
+                response_data['createdDate'] = int(dateutil.parser.parse(response_data['createdDate']).strftime('%s'))
+                response._content = to_bytes(json.dumps(response_data))
+                response.headers['Content-Length'] = len(response.content)
+        except Exception:
+            pass
 
 
 # instantiate listener
