@@ -60,6 +60,7 @@ public class LocalstackDockerTestRunner extends BlockJUnit4ClassRunner {
     private static Map<String, Integer> serviceToPortMap;
 
     private static String externalHostName = "localhost";
+    private static boolean pullNewImage = true;
 
 
     public LocalstackDockerTestRunner(Class<?> klass) throws InitializationError {
@@ -78,6 +79,8 @@ public class LocalstackDockerTestRunner extends BlockJUnit4ClassRunner {
 
 
     private void processDockerPropertiesAnnotation(LocalstackDockerProperties properties) {
+        pullNewImage = properties.pullNewImage();
+
         try {
             IHostNameResolver hostNameResolver = properties.hostNameResolver().newInstance();
             String resolvedName = hostNameResolver.getHostName();
@@ -94,7 +97,7 @@ public class LocalstackDockerTestRunner extends BlockJUnit4ClassRunner {
 
     @Override
     public void run(RunNotifier notifier) {
-        localStackContainer = Container.createLocalstackContainer(externalHostName);
+        localStackContainer = Container.createLocalstackContainer(externalHostName, pullNewImage);
         try {
             loadServiceToPortMap();
 

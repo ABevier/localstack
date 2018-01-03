@@ -38,9 +38,12 @@ public class Container {
     private final List<PortMapping> ports;
 
 
-    public static Container createLocalstackContainer(String externalHostName) {
-        LOG.info("Pulling latest image...");
-        new PullCommand(LOCALSTACK_NAME).execute();
+    public static Container createLocalstackContainer(String externalHostName, boolean pullNewImage) {
+
+        if(pullNewImage) {
+            LOG.info("Pulling latest image...");
+            new PullCommand(LOCALSTACK_NAME).execute();
+        }
 
         String containerId = new RunCommand(LOCALSTACK_NAME)
                 .withExposedPorts(LOCALSTACK_PORTS)

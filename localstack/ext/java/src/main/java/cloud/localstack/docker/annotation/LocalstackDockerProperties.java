@@ -12,6 +12,15 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface LocalstackDockerProperties {
 
-    Class<? extends IHostNameResolver> hostNameResolver();
+    /**
+     * Used for determining the host name of the machine running the docker containers
+     * so that the containers can be addressed.
+     */
+    Class<? extends IHostNameResolver> hostNameResolver() default LocalHostNameResolver.class;
+
+    /**
+     * Determines if a new image is pulled from the docker repo before the tests are run.
+     */
+    boolean pullNewImage() default true;
 }
 
