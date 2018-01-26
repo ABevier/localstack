@@ -18,6 +18,10 @@ public @interface LocalstackDockerProperties {
      */
     Class<? extends IHostNameResolver> hostNameResolver() default LocalHostNameResolver.class;
 
+    /**
+     * Used for injecting environment variables into the container.  Implement a class that provides a map of the environment
+     * variables and they will be injected into the container on start-up
+     */
     Class<? extends IEnvironmentVariableProvider> environmentVariableProvider() default DefaultEnvironmentVariableProvider.class;
 
     /**
